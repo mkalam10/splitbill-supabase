@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import * as authService from '../services/authService';
@@ -12,21 +13,34 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [verificationMsg, setVerificationMsg] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setVerificationMsg(null);
         setIsLoading(true);
 
         try {
-            let user: User;
             if (isLoginView) {
-                user = await authService.login(email, password);
+                const user = await authService.login(email, password);
+                onLoginSuccess(user);
             } else {
-                user = await authService.register(name, email, password);
+                // Registration Flow
+                const { user, session } = await authService.register(name, email, password);
+                
+                // If session is null, it means 'Confirm Email' is enabled in Supabase
+                // and the user must verify before logging in.
+                if (!session) {
+                    setIsLoginView(true); // Switch to login view
+                    setVerificationMsg(`Account created successfully! Please check your email (${email}) to verify your account before logging in.`);
+                    setPassword(''); // Clear password for security
+                } else {
+                    // If 'Confirm Email' is disabled in Supabase, log them in immediately
+                    onLoginSuccess(user);
+                }
             }
-            onLoginSuccess(user);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -37,6 +51,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     const toggleView = () => {
         setIsLoginView(!isLoginView);
         setError(null);
+        setVerificationMsg(null);
         setName('');
         setEmail('');
         setPassword('');
@@ -50,6 +65,20 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             </div>
             <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-8">
                 <h2 className="text-3xl font-bold text-center text-green-600 mb-6">{isLoginView ? 'Welcome Back!' : 'Create Account'}</h2>
+                
+                {verificationMsg && (
+                    <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-r shadow-sm">
+                        <div className="flex">
+                            <div className="flex-shrink-0">
+                                <i className="fas fa-check-circle text-green-500"></i>
+                            </div>
+                            <div className="ml-3">
+                                <p className="text-sm text-green-700 font-semibold">{verificationMsg}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {!isLoginView && (
                         <div>
@@ -87,7 +116,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                         />
                     </div>
 
-                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                    {error && <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm text-center border border-red-200">{error}</div>}
 
                     <button
                         type="submit"
@@ -105,7 +134,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                 </p>
             </div>
              <footer className="text-center mt-12 text-gray-500 text-sm">
-                <p>Powered by Gemini API. Built with React & TypeScript.</p>
+                <p>Powered by Gemini API & Supabase. Built with React & TypeScript.</p>
             </footer>
         </div>
     );

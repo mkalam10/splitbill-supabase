@@ -1,7 +1,9 @@
+
 import { supabase } from './supabaseClient';
 import { User } from '../types';
 
-export const register = async (name: string, email: string, password: string): Promise<User> => {
+// Modified to return session info so UI knows if email confirmation is needed
+export const register = async (name: string, email: string, password: string): Promise<{ user: User, session: any }> => {
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -15,11 +17,15 @@ export const register = async (name: string, email: string, password: string): P
     if (error) throw error;
     if (!data.user) throw new Error("Registration failed");
 
-    return {
+    const user: User = {
         id: data.user.id,
         email: data.user.email || '',
         name: data.user.user_metadata?.full_name || name
     };
+
+    // Return both user and session. 
+    // If Confirm Email is enabled in Supabase, data.session will be null here.
+    return { user, session: data.session };
 };
 
 export const login = async (email: string, password: string): Promise<User> => {
@@ -28,7 +34,14 @@ export const login = async (email: string, password: string): Promise<User> => {
         password
     });
 
-    if (error) throw error;
+    if (error) {
+        // Provide a more user-friendly error for unconfirmed emails
+        if (error.message.includes("Email not confirmed")) {
+            throw new Error("Please verify your email address before logging in.");
+        }
+        throw error;
+    }
+    
     if (!data.user) throw new Error("Login failed");
 
     return {
