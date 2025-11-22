@@ -8,7 +8,7 @@ import Auth from './components/Auth';
 import { calculateBill } from './services/calculationService';
 import { getBills, saveBill } from './services/historyService';
 import * as authService from './services/authService';
-import { isSupabaseConfigured, setupSupabaseManual, clearSupabaseConfig } from './services/supabaseClient';
+import { isSupabaseConfigured } from './services/supabaseClient';
 
 
 const App: React.FC = () => {
@@ -17,34 +17,6 @@ const App: React.FC = () => {
     const [historicalBills, setHistoricalBills] = useState<Bill[]>([]);
     const [view, setView] = useState<'bill' | 'history'>('bill');
     const [isLoading, setIsLoading] = useState(true);
-
-    // Setup state
-    const [setupUrl, setSetupUrl] = useState('');
-    const [setupKey, setSetupKey] = useState('');
-    const [showSql, setShowSql] = useState(false);
-
-    const SUPABASE_SQL = `-- 1. Create table 'bills'
-create table public.bills (
-  id text not null primary key,
-  user_id uuid not null references auth.users(id),
-  title text not null,
-  date timestamp with time zone not null,
-  host_id text not null,
-  currency text not null default 'IDR',
-  participants jsonb not null default '[]'::jsonb,
-  items jsonb not null default '[]'::jsonb,
-  extras jsonb not null default '[]'::jsonb,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 2. Enable Row Level Security (RLS)
-alter table public.bills enable row level security;
-
--- 3. Create Policies
-create policy "Users can view their own bills" on public.bills for select using (auth.uid() = user_id);
-create policy "Users can insert their own bills" on public.bills for insert with check (auth.uid() = user_id);
-create policy "Users can update their own bills" on public.bills for update using (auth.uid() = user_id);
-create policy "Users can delete their own bills" on public.bills for delete using (auth.uid() = user_id);`;
 
     useEffect(() => {
         const initAuth = async () => {
@@ -95,12 +67,6 @@ create policy "Users can delete their own bills" on public.bills for delete usin
         setView('bill');
     };
     
-    const handleResetConfig = () => {
-        if(confirm('Are you sure you want to disconnect from this Supabase project?')) {
-            clearSupabaseConfig();
-        }
-    };
-
     const handleCreateBill = (title: string, participants: Participant[]) => {
         const newBill: Bill = {
             id: `temp_${Date.now()}`, // Temporary ID for new bills
@@ -154,18 +120,6 @@ create policy "Users can delete their own bills" on public.bills for delete usin
         setView('bill');
     }
 
-    const handleManualSetup = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (setupUrl && setupKey) {
-            setupSupabaseManual(setupUrl, setupKey);
-        }
-    };
-
-    const handleCopySql = () => {
-        navigator.clipboard.writeText(SUPABASE_SQL);
-        alert("SQL copied to clipboard!");
-    };
-
     const updateBill = useCallback((updatedBill: Bill) => {
         setBill(updatedBill);
     }, []);
@@ -179,80 +133,12 @@ create policy "Users can delete their own bills" on public.bills for delete usin
     if (!isSupabaseConfigured) {
         return (
             <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
-                <div className="bg-white max-w-2xl w-full rounded-xl shadow-2xl p-8 border-t-4 border-green-500">
-                    <div className="text-center mb-6">
-                        <i className="fa-solid fa-database text-5xl text-green-500 mb-4"></i>
-                        <h1 className="text-3xl font-bold text-gray-900">Connect Database</h1>
-                        <p className="text-gray-600 mt-2">Please connect to Supabase to continue.</p>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h3 className="font-bold text-blue-800 mb-2 text-sm"><i className="fas fa-info-circle mr-2"></i>Quick Setup Guide:</h3>
-                            <ol className="list-decimal list-inside space-y-1 text-blue-900 text-xs">
-                                <li>Go to <a href="https://supabase.com/dashboard" target="_blank" className="underline font-bold hover:text-blue-600">Supabase Dashboard</a> & create a project.</li>
-                                <li>Go to <strong>Settings (⚙️)</strong> &rarr; <strong>API</strong> to get your URL and Key.</li>
-                                <li>Go to <strong>SQL Editor</strong> and run the required schema.</li>
-                            </ol>
-                            
-                            <div className="mt-3">
-                                <button 
-                                    type="button"
-                                    onClick={() => setShowSql(!showSql)}
-                                    className="text-blue-600 text-xs font-bold hover:underline flex items-center"
-                                >
-                                    <i className={`fas fa-chevron-${showSql ? 'up' : 'down'} mr-1`}></i>
-                                    {showSql ? 'Hide SQL Query' : 'Show SQL Query needed for Database'}
-                                </button>
-                                
-                                {showSql && (
-                                    <div className="mt-2 relative">
-                                        <div className="bg-gray-800 text-gray-200 p-3 rounded-lg text-[10px] font-mono overflow-x-auto max-h-40">
-                                            <pre>{SUPABASE_SQL}</pre>
-                                        </div>
-                                        <button 
-                                            onClick={handleCopySql}
-                                            className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-[10px] transition-colors border border-gray-600"
-                                        >
-                                            Copy SQL
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <form onSubmit={handleManualSetup} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Supabase Project URL</label>
-                                <input 
-                                    type="text" 
-                                    value={setupUrl}
-                                    onChange={e => setSetupUrl(e.target.value)}
-                                    placeholder="https://xyz.supabase.co"
-                                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Supabase Anon Key</label>
-                                <input 
-                                    type="password" 
-                                    value={setupKey}
-                                    onChange={e => setSetupKey(e.target.value)}
-                                    placeholder="eyJhbGciOiJIUzI1NiIsInR..."
-                                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    required
-                                />
-                            </div>
-                            <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                                Save & Connect
-                            </button>
-                        </form>
-                        
-                        <p className="text-center text-xs text-gray-400 mt-4">
-                            These keys will be stored safely in your browser's local storage.
-                        </p>
-                    </div>
+                <div className="bg-white max-w-md w-full rounded-xl shadow-2xl p-8 border-t-4 border-red-500 text-center">
+                    <i className="fa-solid fa-code text-5xl text-gray-400 mb-4"></i>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Setup Required</h1>
+                    <p className="text-gray-600 mb-4">
+                        Please open <code>services/supabaseClient.ts</code> and paste your Supabase URL and Anon Key.
+                    </p>
                 </div>
             </div>
         );
@@ -303,13 +189,6 @@ create policy "Users can delete their own bills" on public.bills for delete usin
                         >
                             <i className="fa-solid fa-power-off"></i>
                             <span className="hidden sm:inline">Logout</span>
-                        </button>
-                         <button
-                            onClick={handleResetConfig}
-                            className="text-gray-400 hover:text-gray-600 p-2 rounded-lg transition-colors"
-                            title="Disconnect Database"
-                        >
-                            <i className="fa-solid fa-gear"></i>
                         </button>
                     </div>
                 </header>
