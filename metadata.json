@@ -1,0 +1,7 @@
+{
+  "name": "SplitBill Pro (Supabase)",
+  "description": "An intelligent bill splitting application that uses OCR to scan receipts. Uses Supabase for backend-as-a-service (DB & Auth).",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
