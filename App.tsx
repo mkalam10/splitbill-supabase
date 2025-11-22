@@ -8,8 +8,6 @@ import Auth from './components/Auth';
 import { calculateBill } from './services/calculationService';
 import { getBills, saveBill } from './services/historyService';
 import * as authService from './services/authService';
-import { isSupabaseConfigured } from './services/supabaseClient';
-
 
 const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -20,10 +18,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const initAuth = async () => {
-            if (!isSupabaseConfigured) {
-                setIsLoading(false);
-                return;
-            }
+            // Check removed: Application will attempt to auth immediately using provided credentials
             try {
                 const user = await authService.getCurrentUser();
                 if (user) {
@@ -39,7 +34,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const fetchBills = async () => {
-            if (currentUser && isSupabaseConfigured) {
+            // Check removed: will attempt to fetch if user is logged in
+            if (currentUser) {
                 setIsLoading(true);
                 try {
                     const loadedBills = await getBills();
@@ -129,20 +125,7 @@ const App: React.FC = () => {
         return calculateBill(bill);
     }, [bill]);
 
-    // --- Configuration Check Render ---
-    if (!isSupabaseConfigured) {
-        return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
-                <div className="bg-white max-w-md w-full rounded-xl shadow-2xl p-8 border-t-4 border-red-500 text-center">
-                    <i className="fa-solid fa-code text-5xl text-gray-400 mb-4"></i>
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Setup Required</h1>
-                    <p className="text-gray-600 mb-4">
-                        Please open <code>services/supabaseClient.ts</code> and paste your Supabase URL and Anon Key.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    // Setup Required Screen Removed. Application will render directly.
 
     if (isLoading && !currentUser) {
          return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-500"></div></div>;
