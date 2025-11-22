@@ -21,6 +21,30 @@ const App: React.FC = () => {
     // Setup state
     const [setupUrl, setSetupUrl] = useState('');
     const [setupKey, setSetupKey] = useState('');
+    const [showSql, setShowSql] = useState(false);
+
+    const SUPABASE_SQL = `-- 1. Create table 'bills'
+create table public.bills (
+  id text not null primary key,
+  user_id uuid not null references auth.users(id),
+  title text not null,
+  date timestamp with time zone not null,
+  host_id text not null,
+  currency text not null default 'IDR',
+  participants jsonb not null default '[]'::jsonb,
+  items jsonb not null default '[]'::jsonb,
+  extras jsonb not null default '[]'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. Enable Row Level Security (RLS)
+alter table public.bills enable row level security;
+
+-- 3. Create Policies
+create policy "Users can view their own bills" on public.bills for select using (auth.uid() = user_id);
+create policy "Users can insert their own bills" on public.bills for insert with check (auth.uid() = user_id);
+create policy "Users can update their own bills" on public.bills for update using (auth.uid() = user_id);
+create policy "Users can delete their own bills" on public.bills for delete using (auth.uid() = user_id);`;
 
     useEffect(() => {
         const initAuth = async () => {
@@ -137,6 +161,11 @@ const App: React.FC = () => {
         }
     };
 
+    const handleCopySql = () => {
+        navigator.clipboard.writeText(SUPABASE_SQL);
+        alert("SQL copied to clipboard!");
+    };
+
     const updateBill = useCallback((updatedBill: Bill) => {
         setBill(updatedBill);
     }, []);
@@ -162,10 +191,34 @@ const App: React.FC = () => {
                             <h3 className="font-bold text-blue-800 mb-2 text-sm"><i className="fas fa-info-circle mr-2"></i>Quick Setup Guide:</h3>
                             <ol className="list-decimal list-inside space-y-1 text-blue-900 text-xs">
                                 <li>Go to <a href="https://supabase.com/dashboard" target="_blank" className="underline font-bold hover:text-blue-600">Supabase Dashboard</a> & create a project.</li>
-                                <li>Go to <strong>Settings (⚙️)</strong> &rarr; <strong>API</strong>.</li>
-                                <li>Copy <strong>Project URL</strong> and <strong>anon public key</strong> below.</li>
-                                <li>Run the SQL found in the chat history in the <strong>SQL Editor</strong>.</li>
+                                <li>Go to <strong>Settings (⚙️)</strong> &rarr; <strong>API</strong> to get your URL and Key.</li>
+                                <li>Go to <strong>SQL Editor</strong> and run the required schema.</li>
                             </ol>
+                            
+                            <div className="mt-3">
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowSql(!showSql)}
+                                    className="text-blue-600 text-xs font-bold hover:underline flex items-center"
+                                >
+                                    <i className={`fas fa-chevron-${showSql ? 'up' : 'down'} mr-1`}></i>
+                                    {showSql ? 'Hide SQL Query' : 'Show SQL Query needed for Database'}
+                                </button>
+                                
+                                {showSql && (
+                                    <div className="mt-2 relative">
+                                        <div className="bg-gray-800 text-gray-200 p-3 rounded-lg text-[10px] font-mono overflow-x-auto max-h-40">
+                                            <pre>{SUPABASE_SQL}</pre>
+                                        </div>
+                                        <button 
+                                            onClick={handleCopySql}
+                                            className="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-[10px] transition-colors border border-gray-600"
+                                        >
+                                            Copy SQL
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <form onSubmit={handleManualSetup} className="space-y-4">
